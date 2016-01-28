@@ -74,3 +74,10 @@ End case
 
 CALL PROCESS(-1)
 ```
+
+```
+$level:=Get battery warning level 
+```
+
+This is a simple wrapper of [IOPSGetBatteryWarningLevel](https://developer.apple.com/library/mac/documentation/IOKit/Reference/IOPowerSources_header_reference/#//apple_ref/c/tdef/IOPSLowBatteryWarningLevel).
+
