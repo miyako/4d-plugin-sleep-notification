@@ -11,7 +11,7 @@ Platform
 Commands
 ---
 
-```
+```c
 // --- Notification
 SN_Set_sleep_method
 SN_Get_sleep_method
