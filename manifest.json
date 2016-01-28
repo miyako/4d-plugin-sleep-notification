@@ -1,0 +1,1 @@
+﻿{"name":"Sleep Notification ","id":15000,"commands":[{"theme":"Notification","syntax":"SN Set sleep method(&T):L"},{"theme":"Notification","syntax":"SN Get sleep method:T"},{"theme":"Information","syntax":"Get battery warning level:L"},{"theme":"Information","syntax":"GET POWER INFORMATION(&Y)"}]}
