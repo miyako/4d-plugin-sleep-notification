@@ -8,7 +8,7 @@ Platform
 |:------:|:-----:|:---------:|:---------:|
 |🆗|🆗|🚫|🚫|
 
-###TODO: Queue events.
+**TODO**: Queue events.
 
 Commands
 ---
