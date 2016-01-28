@@ -244,6 +244,7 @@ void listenerLoopFinish()
 								SN::LISTENER_METHOD.setUTF16String((PA_Unichar *)"\0\0", 0);
 								SN::CALLBACK_METHOD_ID = 0;
 								[SN::listener release];
+								SN::listener = nil;
         //tell listener to die      
         while(SN::MONITOR_PROCESS_ID)
 								{
