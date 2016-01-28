@@ -11,5 +11,15 @@ Platform
 Commands
 ---
 
+```
+// --- Notification
+SN_Set_sleep_method
+SN_Get_sleep_method
+
+// --- Information
+Get_battery_warning_level
+GET_POWER_INFORMATION
+```
+
 Examples
 ---
