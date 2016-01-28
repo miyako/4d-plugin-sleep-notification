@@ -81,3 +81,10 @@ $level:=Get battery warning level
 
 This is a simple wrapper of [IOPSGetBatteryWarningLevel](https://developer.apple.com/library/mac/documentation/IOKit/Reference/IOPowerSources_header_reference/#//apple_ref/c/tdef/IOPSLowBatteryWarningLevel).
 
+```
+ARRAY TEXT($powerInfos;0)
+GET POWER INFORMATION ($powerInfos)
+  //array of XML property lists
+```
+
+The result array will contain information returned by ``IOPSGetPowerSourceDescription`` and ``IOPSCopyExternalPowerAdapterDetails``.
