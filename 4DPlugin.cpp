@@ -25,6 +25,7 @@
 - (void)screensDidSleep:(NSNotification *)notification;
 - (void)screensDidWake:(NSNotification *)notification;
 - (void)willPowerOff:(NSNotification *)notification;
+- (void)call:(event_id_t)event;
 @end
 
 namespace SN
@@ -38,7 +39,7 @@ namespace SN
 				event_id_t CALLBACK_EVENT_ID = 0;
 				C_TEXT LISTENER_METHOD;
 				bool MONITOR_PROCESS_SHOULD_TERMINATE;
-				bool MONITOR_PROCESS_SHOULD_EXECUTE_METHOD;
+				std::vector<event_id_t>CALLBACK_EVENT_IDS;
 }
 
 @implementation Listener
@@ -84,36 +85,34 @@ namespace SN
 - (void)dealloc
 {
     [[[NSWorkspace sharedWorkspace] notificationCenter]removeObserver:self];
+				SN::CALLBACK_EVENT_IDS.clear();
     [super dealloc];
 }
 - (void)didWake:(NSNotification *)notification
 {
-    SN::MONITOR_PROCESS_SHOULD_EXECUTE_METHOD = true;
-    SN::CALLBACK_EVENT_ID = 1;
-    PA_UnfreezeProcess(SN::MONITOR_PROCESS_ID);
+				[self call:1];
 }
 - (void)willSleep:(NSNotification *)notification
 {
-    SN::MONITOR_PROCESS_SHOULD_EXECUTE_METHOD = true;
-    SN::CALLBACK_EVENT_ID = 2;
-    PA_UnfreezeProcess(SN::MONITOR_PROCESS_ID);
+				[self call:2];
 }
 - (void)willPowerOff:(NSNotification *)notification
 {
-    SN::MONITOR_PROCESS_SHOULD_EXECUTE_METHOD = true;
-    SN::CALLBACK_EVENT_ID = 3;
-    PA_UnfreezeProcess(SN::MONITOR_PROCESS_ID);
+				[self call:3];
 }
 - (void)screensDidWake:(NSNotification *)notification
 {
-    SN::MONITOR_PROCESS_SHOULD_EXECUTE_METHOD = true;
-    SN::CALLBACK_EVENT_ID = 4;
-    PA_UnfreezeProcess(SN::MONITOR_PROCESS_ID);
+				[self call:4];
 }
 - (void)screensDidSleep:(NSNotification *)notification
 {
-    SN::MONITOR_PROCESS_SHOULD_EXECUTE_METHOD = true;
-    SN::CALLBACK_EVENT_ID = 5;
+				[self call:5];
+}
+
+- (void)call:(event_id_t)event
+{
+				SN::CALLBACK_EVENT_ID = event;
+				SN::CALLBACK_EVENT_IDS.push_back(SN::CALLBACK_EVENT_ID);
     PA_UnfreezeProcess(SN::MONITOR_PROCESS_ID);
 }
 
@@ -196,24 +195,23 @@ void OnCloseProcess()
 
 void listenerLoop()
 {
-    SN::MONITOR_PROCESS_SHOULD_EXECUTE_METHOD = false;
     SN::MONITOR_PROCESS_SHOULD_TERMINATE = false;
         
     while(!SN::MONITOR_PROCESS_SHOULD_TERMINATE)
-    { 
-        PA_YieldAbsolute();
-        
-        if(SN::MONITOR_PROCESS_SHOULD_EXECUTE_METHOD)
+    {
+								PA_YieldAbsolute();
+								while(SN::CALLBACK_EVENT_IDS.size())
 								{
-            SN::MONITOR_PROCESS_SHOULD_EXECUTE_METHOD = false;
-            
+												PA_YieldAbsolute();
             C_TEXT processName;
             generateUuid(processName);
-            PA_NewProcess((void *)listenerLoopExecuteMethod, 
+            PA_NewProcess((void *)listenerLoopExecute,
                           SN::MONITOR_PROCESS_STACK_SIZE,
-                          (PA_Unichar *)processName.getUTF16StringPtr());        
-
-        }
+                          (PA_Unichar *)processName.getUTF16StringPtr());
+												
+												if(SN::MONITOR_PROCESS_SHOULD_TERMINATE)
+																break;
+								}
 
         if(!SN::MONITOR_PROCESS_SHOULD_TERMINATE){
             PA_FreezeProcess(PA_GetCurrentProcessNumber());  
@@ -239,7 +237,6 @@ void listenerLoopFinish()
 				{
         //set flags
         SN::MONITOR_PROCESS_SHOULD_TERMINATE = true;
-        SN::MONITOR_PROCESS_SHOULD_EXECUTE_METHOD = false;
         PA_YieldAbsolute();
 								SN::LISTENER_METHOD.setUTF16String((PA_Unichar *)"\0\0", 0);
 								SN::CALLBACK_METHOD_ID = 0;
@@ -256,18 +253,16 @@ void listenerLoopFinish()
 
 void listenerLoopExecute()
 {
-    SN::MONITOR_PROCESS_SHOULD_TERMINATE = false;
-    SN::MONITOR_PROCESS_SHOULD_EXECUTE_METHOD = true;
-    PA_UnfreezeProcess(SN::MONITOR_PROCESS_ID);
-}
-
-void listenerLoopExecuteMethod()
-{
     if(SN::CALLBACK_METHOD_ID)
 				{
         PA_Variable	params[1];
         params[0] = PA_CreateVariable(eVK_Longint);
-								PA_SetLongintVariable(&params[0], SN::CALLBACK_EVENT_ID - 1);
+								
+								std::vector<event_id_t>::iterator e = SN::CALLBACK_EVENT_IDS.begin();
+								event_id_t event = (*e) - 1;
+								SN::CALLBACK_EVENT_IDS.erase(e);
+
+								PA_SetLongintVariable(&params[0], event);
         PA_ExecuteMethodByID(SN::CALLBACK_METHOD_ID, params, 1);
         PA_ClearVariable(&params[0]);
     }

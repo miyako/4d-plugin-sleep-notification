@@ -24,7 +24,6 @@ void listenerLoop(void);
 void listenerLoopStart(void);
 void listenerLoopFinish(void);
 void listenerLoopExecute(void);
-void listenerLoopExecuteMethod(void);
 
 //internal variable
 
