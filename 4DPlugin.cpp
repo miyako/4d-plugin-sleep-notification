@@ -261,11 +261,14 @@ void listenerLoopExecute()
         PA_Variable	params[1];
         params[0] = PA_CreateVariable(eVK_Longint);
 								PA_SetLongintVariable(&params[0], event);
+								//the method could be paused or traced
+								SN::CALLBACK_EVENT_IDS.erase(e);
         PA_ExecuteMethodByID(SN::CALLBACK_METHOD_ID, params, 1);
         PA_ClearVariable(&params[0]);
-    }
-				
-				SN::CALLBACK_EVENT_IDS.erase(e);
+    }else{
+								//the method could have been removed
+								SN::CALLBACK_EVENT_IDS.erase(e);
+				}
 }
 
 #pragma mark -
