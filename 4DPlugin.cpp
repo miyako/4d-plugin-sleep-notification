@@ -243,11 +243,11 @@ void listenerLoopFinish()
 								[SN::listener release];
 								SN::listener = nil;
         //tell listener to die      
-        while(SN::MONITOR_PROCESS_ID)
-								{
-            PA_YieldAbsolute();
+//        while(SN::MONITOR_PROCESS_ID)
+//								{
+//            PA_YieldAbsolute();
             PA_UnfreezeProcess(SN::MONITOR_PROCESS_ID);
-        }
+//        }
     }
 }
 
