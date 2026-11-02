@@ -40,6 +40,8 @@ namespace SN
 				C_TEXT LISTENER_METHOD;
 				bool MONITOR_PROCESS_SHOULD_TERMINATE;
 				std::vector<event_id_t>CALLBACK_EVENT_IDS;
+				//events already handed to a worker process (one process per entry)
+				std::vector<event_id_t>DISPATCHED_EVENT_IDS;
 }
 
 @implementation Listener
@@ -86,6 +88,7 @@ namespace SN
 {
     [[[NSWorkspace sharedWorkspace] notificationCenter]removeObserver:self];
 				SN::CALLBACK_EVENT_IDS.clear();
+				SN::DISPATCHED_EVENT_IDS.clear();
     [super dealloc];
 }
 - (void)didWake:(NSNotification *)notification
@@ -122,13 +125,10 @@ namespace SN
 
 void generateUuid(C_TEXT &returnValue)
 {
-#if __MAC_OS_X_VERSION_MAX_ALLOWED >= 1080
-    returnValue.setUTF16String([[[NSUUID UUID]UUIDString]stringByReplacingOccurrencesOfString:@"-" withString:@""]);
-#else
-    CFUUIDRef uuid = CFUUIDCreate(kCFAllocatorDefault);
-    NSString *uuid_str = (NSString *)CFUUIDCreateString(kCFAllocatorDefault, uuid);
-    returnValue.setUTF16String([uuid_str stringByReplacingOccurrencesOfString:@"-" withString:@""]);
-#endif
+    @autoreleasepool
+    {
+        returnValue.setUTF16String([[[NSUUID UUID]UUIDString]stringByReplacingOccurrencesOfString:@"-" withString:@""]);
+    }
 }
 
 NSString *copyDictionaryString(NSDictionary *d)
@@ -144,8 +144,11 @@ NSString *copyDictionaryString(NSDictionary *d)
 		if(dPropertyList)
 		{
 			NSData *dPropertyListData = 
-			(NSData *)CFPropertyListCreateXMLData(kCFAllocatorDefault, 
-												  dPropertyList);
+			(NSData *)CFPropertyListCreateData(kCFAllocatorDefault, 
+											   dPropertyList,
+											   kCFPropertyListXMLFormat_v1_0,
+											   0,
+											   NULL);
 			
 			if(dPropertyListData)
 			{
@@ -195,19 +198,22 @@ void OnCloseProcess()
 
 void listenerLoop()
 {
-    SN::MONITOR_PROCESS_SHOULD_TERMINATE = false;
-        
     while(!SN::MONITOR_PROCESS_SHOULD_TERMINATE)
     {
 								PA_YieldAbsolute();
+								//start exactly one worker per event: move the event to the
+								//dispatched queue first, so a worker that has not run yet
+								//is not counted again on the next pass
 								while(SN::CALLBACK_EVENT_IDS.size())
 								{
-												PA_YieldAbsolute();
+												SN::DISPATCHED_EVENT_IDS.push_back(SN::CALLBACK_EVENT_IDS.front());
+												SN::CALLBACK_EVENT_IDS.erase(SN::CALLBACK_EVENT_IDS.begin());
             C_TEXT processName;
             generateUuid(processName);
             PA_NewProcess((void *)listenerLoopExecute,
                           SN::MONITOR_PROCESS_STACK_SIZE,
                           (PA_Unichar *)processName.getUTF16StringPtr());
+												PA_YieldAbsolute();
 												
 												if(SN::MONITOR_PROCESS_SHOULD_TERMINATE)
 																break;
@@ -224,9 +230,17 @@ void listenerLoop()
 
 void listenerLoopStart()
 {
-    if(!SN::MONITOR_PROCESS_ID)
+    //a previous monitor process may still be alive (asked to terminate but
+    //not yet woken up): keep it running instead of losing the listener
+    SN::MONITOR_PROCESS_SHOULD_TERMINATE = false;
+    
+    if(!SN::listener)
 				{
         SN::listener = [[Listener alloc]init];
+    }
+    
+    if(!SN::MONITOR_PROCESS_ID)
+				{
         SN::MONITOR_PROCESS_ID = PA_NewProcess((void *)listenerLoop, SN::MONITOR_PROCESS_STACK_SIZE, SN::MONITOR_PROCESS_NAME);
     }
 }
@@ -253,22 +267,23 @@ void listenerLoopFinish()
 
 void listenerLoopExecute()
 {
-				std::vector<event_id_t>::iterator e = SN::CALLBACK_EVENT_IDS.begin();
-				event_id_t event = (*e) - 1;
+				//the queue may have been cleared (listener released) before this process ran
+				if(SN::DISPATCHED_EVENT_IDS.empty())
+								return;
+				
+				event_id_t event = SN::DISPATCHED_EVENT_IDS.front() - 1;
+				//dequeue before calling: the method could be paused or traced
+				SN::DISPATCHED_EVENT_IDS.erase(SN::DISPATCHED_EVENT_IDS.begin());
 
+    //the method could have been removed
     if(SN::CALLBACK_METHOD_ID)
 				{
         PA_Variable	params[1];
         params[0] = PA_CreateVariable(eVK_Longint);
 								PA_SetLongintVariable(&params[0], event);
-								//the method could be paused or traced
-								SN::CALLBACK_EVENT_IDS.erase(e);
         PA_ExecuteMethodByID(SN::CALLBACK_METHOD_ID, params, 1);
         PA_ClearVariable(&params[0]);
-    }else{
-								//the method could have been removed
-								SN::CALLBACK_EVENT_IDS.erase(e);
-				}
+    }
 }
 
 #pragma mark -
@@ -334,8 +349,6 @@ void SN_Set_sleep_method(sLONG_PTR *pResult, PackagePtr pParams)
 
 				Param1.fromParamAtIndex(pParams, 1);
 	
-				NSString *methodName = Param1.copyUTF16String();
-	
 				if(!Param1.getUTF16Length())
 				{
 								//empty string passed
@@ -362,8 +375,6 @@ void SN_Set_sleep_method(sLONG_PTR *pResult, PackagePtr pParams)
             }
 								}
 				}
-	
-				[methodName release];
 
 				returnValue.setReturn(pResult);
 }
@@ -394,6 +405,8 @@ void GET_POWER_INFORMATION(sLONG_PTR *pResult, PackagePtr pParams)
 				ARRAY_TEXT Param1;
 				Param1.setSize(1);
 				
+				@autoreleasepool
+				{
 				CFTypeRef powerSourcesInfo = IOPSCopyPowerSourcesInfo();
 	
 				if(powerSourcesInfo)
@@ -417,6 +430,7 @@ void GET_POWER_INFORMATION(sLONG_PTR *pResult, PackagePtr pParams)
 												}
 												[powerSourcesList release];
 								}
+								CFRelease(powerSourcesInfo);
 				}
 				
 				NSDictionary *powerAdapterDetails = (NSDictionary *)IOPSCopyExternalPowerAdapterDetails();
@@ -431,6 +445,7 @@ void GET_POWER_INFORMATION(sLONG_PTR *pResult, PackagePtr pParams)
 												[powerAdapterDetailsXML release];
 								}
 								[powerAdapterDetails release];
+				}
 				}
 				
 				Param1.toParamAtIndex(pParams, 1);
