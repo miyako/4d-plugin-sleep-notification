@@ -1,0 +1,5 @@
+﻿/* Localized versions of Info.plist keys */
+
+CFBundleName = "Sleep Notification ";
+CFBundleShortVersionString = "1.2.3";
+CFBundleGetInfoString = "Sleep Notification  version 1.2.3, Copyright 2014 miyako.";
