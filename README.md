@@ -1,4 +1,4 @@
-![version](https://img.shields.io/badge/version-1.0.0-3E8B93)
+![version](https://img.shields.io/badge/version-1.0.1-3E8B93)
 ![platform](https://img.shields.io/static/v1?label=platform&message=mac-intel%20|%20mac-arm&color=blue)
 
 # 4d-plugin-sleep-notification
@@ -17,6 +17,64 @@ Receive a notification immediately before the computer goes to sleep. The plugin
 **Platforms:** macOS (Apple silicon and Intel, macOS 11.5 or later). The plugin is mac-only. The `Windows64` folder in the bundle holds an old prebuilt binary that is not built from this source.
 
 Releases: [GitHub Releases](https://github.com/miyako/4d-plugin-sleep-notification/releases)
+
+## Maintainer release workflow
+
+**Bump version** and **Build** are separate manual Actions operations, available
+on the selected branch; there is no main-only restriction. Neither a source push
+nor a tag push starts Build.
+
+1. Run **Bump version** on the desired branch, choosing `patch`, `minor` or
+   `major`. It validates the immutable selected commit and clean checkout,
+   updates only coordinated source metadata, commits, then pushes only that
+   explicit branch without force or following tags. A mandatory executable
+   pre-push hook checks Git's advertised old SHA against the exact dispatch SHA,
+   including late advances, ancestor rewinds, deletions and same-result races.
+   Missing/non-executable hooks fail closed. Branch movement requires a fresh
+   dispatch; no tag or Build is created by the bump.
+2. Separately run **Build** on the desired updated branch/commit. It has no inputs
+   and checks out `github.sha` in both jobs. Source metadata supplies strict
+   `X.Y.Z` and the new `vX.Y.Z` tag, never a typed or existing tag.
+3. Build retains the macOS universal arm64/x86_64 build, fresh-binary/resource
+   checks, Developer ID signing/verification, ZIP/DMG packaging, accepted
+   notarization of both assets and DMG stapling. The committed Windows64 binary,
+   Documentation and QuickLook resources ship unchanged; there is no Windows
+   build. Asset names remain `Sleep Notification-X.Y.Z.zip` and
+   `Sleep Notification-X.Y.Z.dmg` (without the product's trailing space).
+
+The source authority is `MARKETING_VERSION` in all three Xcode project
+configurations, coordinated with `CURRENT_PROJECT_VERSION`, source `Info.plist`
+and source `English.lproj/InfoPlist.strings`. The original workflow header
+promised coordinated marketing/current-project versions, but its implementation
+only bumped marketing. Commit `0ea6a50` advanced marketing and the source plist
+to `1.0.1`, leaving current-project at `1.0.0` and localized overrides at `1.0`.
+This migration normalizes those stale source fields to the existing `1.0.1`;
+it does not increment the version. Valid version-setting references are retained;
+absent `CFBundleVersion` stays absent. Prebuilt bundle plists/localizations,
+4D database versions, dependency versions and manifest/schema metadata are not
+release-version inputs or bump targets.
+
+Publication uses one repository-wide concurrency group across branches. Before
+native work and again immediately after all required gates, authenticated,
+paginated release-list checks (including drafts) and remote tag checks must
+complete successfully with no match. Invalid responses and HTTP/auth/network
+errors, including 404 or later-page failures, stop publication. It then uses
+create-only POSTs for the exact selected-SHA tag and a non-draft, non-prerelease
+release, verifies the remote tag SHA, and POSTs assets to the newly returned
+release ID. Release notes remain empty, with no generated notes.
+
+**Failure recovery:** there is no overwrite, clobber, DELETE, PATCH, rollback or
+automatic retry. If tag creation succeeds but release creation fails, the tag
+remains. If publication or an upload fails (including an ambiguous response),
+any release and accepted assets remain. Inspect the Actions error, exact tag
+SHA, draft/published releases and attached assets before taking any manual
+recovery action. Do not rerun expecting repair: existing tags or releases block
+the run, even at the same SHA. A maintainer must explicitly reconcile partial
+state outside these workflows, or use a separately reviewed new source version.
+An existing `v1.0.1` therefore blocks Build until a deliberate source-only bump.
+
+Local regression checks (no native build, signing or remote publication):
+`python3 -m unittest discover -s .github/tests -v` and `actionlint`.
 
 ---
 

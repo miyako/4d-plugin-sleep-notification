@@ -1,0 +1,17 @@
+// Minimal source-version fixture: three coordinated project configurations.
+{
+	objects = {
+		Debug = {
+			MARKETING_VERSION = 1.2.3;
+			CURRENT_PROJECT_VERSION = 1.2.3;
+		};
+		Release = {
+			MARKETING_VERSION = 1.2.3;
+			CURRENT_PROJECT_VERSION = 1.2.3;
+		};
+		Default = {
+			MARKETING_VERSION = 1.2.3;
+			CURRENT_PROJECT_VERSION = 1.2.3;
+		};
+	};
+}
