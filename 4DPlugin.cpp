@@ -281,8 +281,11 @@ void listenerLoopExecute()
         PA_Variable	params[1];
         params[0] = PA_CreateVariable(eVK_Longint);
 								PA_SetLongintVariable(&params[0], event);
-        PA_ExecuteMethodByID(SN::CALLBACK_METHOD_ID, params, 1);
+        PA_Variable returned = PA_ExecuteMethodByID(SN::CALLBACK_METHOD_ID, params, 1);
+        PA_ErrorCode error = PA_GetLastError();
         PA_ClearVariable(&params[0]);
+        if(error == eER_NoErr)
+            PA_ClearVariable(&returned);
     }
 }
 
@@ -450,4 +453,3 @@ void GET_POWER_INFORMATION(sLONG_PTR *pResult, PackagePtr pParams)
 				
 				Param1.toParamAtIndex(pParams, 1);
 }
-
